@@ -1,0 +1,267 @@
+/* ReviewSage - Main Application Styles */
+
+Screen {
+    background: $surface;
+}
+
+/* Header */
+#app-header {
+    dock: top;
+    height: 3;
+    background: $primary-darken-3;
+    color: $text;
+    text-align: center;
+    padding: 1 2;
+}
+
+#app-header .title {
+    text-style: bold;
+}
+
+/* Tabbed content */
+TabbedContent {
+    height: 1fr;
+}
+
+ContentSwitcher {
+    height: 1fr;
+}
+
+TabPane {
+    padding: 0;
+}
+
+/* Data tables */
+DataTable {
+    height: 1fr;
+}
+
+DataTable > .datatable--header {
+    text-style: bold;
+    background: $primary-darken-2;
+    color: $text;
+}
+
+DataTable > .datatable--cursor {
+    background: $accent;
+    color: $text;
+}
+
+/* Pagination bar */
+.pagination-bar {
+    dock: bottom;
+    height: 3;
+    background: $surface-darken-1;
+    padding: 0 2;
+    layout: horizontal;
+    align: center middle;
+}
+
+.pagination-bar Button {
+    margin: 0 1;
+    min-width: 14;
+}
+
+.pagination-bar .page-info {
+    width: auto;
+    margin: 0 2;
+    text-align: center;
+    color: $text-muted;
+}
+
+/* Loading indicator */
+.loading-container {
+    align: center middle;
+    height: 1fr;
+}
+
+LoadingIndicator {
+    color: $accent;
+}
+
+/* Detail screens */
+.detail-screen {
+    padding: 1 2;
+}
+
+.detail-header {
+    dock: top;
+    height: 3;
+    background: $primary-darken-2;
+    padding: 0 2;
+    layout: horizontal;
+    align-vertical: middle;
+}
+
+.detail-header .pr-title {
+    width: 1fr;
+    text-style: bold;
+}
+
+.detail-header .pr-meta {
+    width: auto;
+    color: $text-muted;
+}
+
+.detail-body {
+    padding: 1 2;
+    height: 1fr;
+    overflow-y: auto;
+}
+
+/* Analysis panels */
+.analysis-panel {
+    margin: 1 0;
+    padding: 1 2;
+    border: solid $primary-darken-1;
+    background: $surface-darken-1;
+    height: auto;
+    min-height: 3;
+}
+
+.analysis-panel .panel-title {
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
+.analysis-panel .panel-content {
+    color: $text;
+    height: auto;
+    min-height: 1;
+}
+
+/* Risk level indicators */
+.risk-low {
+    color: $success;
+}
+
+.risk-medium {
+    color: $warning;
+}
+
+.risk-high {
+    color: $error;
+}
+
+.risk-critical {
+    color: $error;
+    text-style: bold;
+}
+
+/* Review comment section */
+.review-panel {
+    margin: 1 0;
+    padding: 1 2;
+    border: solid $accent;
+    background: $surface-darken-1;
+    height: auto;
+    min-height: 3;
+}
+
+.review-panel .panel-title {
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
+.copy-hint {
+    dock: bottom;
+    height: 1;
+    background: $surface-darken-2;
+    color: $text-muted;
+    text-align: center;
+}
+
+/* Issue label indicators */
+.label-bug {
+    color: $error;
+}
+
+.label-question {
+    color: $success;
+}
+
+.label-enhancement {
+    color: dodgerblue;
+}
+
+.label-feature {
+    color: mediumpurple;
+}
+
+.label-other {
+    color: $text-muted;
+}
+
+/* Status indicators */
+.ci-passing {
+    color: $success;
+}
+
+.ci-failing {
+    color: $error;
+}
+
+.ci-pending {
+    color: $warning;
+}
+
+.ci-unknown {
+    color: $text-muted;
+}
+
+/* Footer keybinding hints */
+.keybinding-bar {
+    dock: bottom;
+    height: 1;
+    background: $primary-darken-3;
+    color: $text-muted;
+    text-align: center;
+    padding: 0 2;
+}
+
+/* Sort toggle */
+.sort-indicator {
+    dock: top;
+    height: 1;
+    background: $surface-darken-1;
+    padding: 0 2;
+    color: $text-muted;
+}
+
+/* Help overlay */
+HelpScreen {
+    align: center middle;
+}
+
+HelpScreen > .help-panel {
+    width: 60;
+    height: auto;
+    max-height: 80%;
+    background: $surface;
+    border: thick $primary;
+    padding: 2 3;
+}
+
+HelpScreen > .help-panel .help-title {
+    text-style: bold;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+HelpScreen > .help-panel .help-row {
+    layout: horizontal;
+    height: auto;
+    margin-bottom: 0;
+}
+
+HelpScreen > .help-panel .help-key {
+    width: 16;
+    text-style: bold;
+    color: $accent;
+}
+
+HelpScreen > .help-panel .help-desc {
+    width: 1fr;
+}

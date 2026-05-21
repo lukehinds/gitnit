@@ -1,4 +1,4 @@
-"""Copyable text widget for ReviewSage."""
+"""Copyable text widget for GitNit."""
 
 from __future__ import annotations
 

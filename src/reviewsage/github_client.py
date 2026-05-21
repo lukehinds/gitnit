@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from github import Github
 from github.GithubException import GithubException
 
-from reviewsage.models import CIStatus, IssueData, IssueDetail, IssueLabel, PRData, PRDetail
+from gitnit.models import CIStatus, IssueData, IssueDetail, IssueLabel, PRData, PRDetail
 
 if TYPE_CHECKING:
     from github.PullRequest import PullRequest

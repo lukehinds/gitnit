@@ -7,18 +7,18 @@ import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
-from reviewsage.cache import (
+from gitnit.cache import (
     get_cached_issue_analysis,
     get_cached_pr_analysis,
     save_issue_analysis,
     save_pr_analysis,
 )
-from reviewsage.models import IssueAnalysis, IssueSeverity, PRAnalysis
+from gitnit.models import IssueAnalysis, IssueSeverity, PRAnalysis
 
 if TYPE_CHECKING:
-    from reviewsage.models import IssueDetail, PRDetail
+    from gitnit.models import IssueDetail, PRDetail
 
-PR_ANALYSIS_PROMPT = """You are ReviewSage, an expert code reviewer. Analyze the following pull request and provide your assessment.
+PR_ANALYSIS_PROMPT = """You are GitNit, an expert code reviewer. Analyze the following pull request and provide your assessment.
 
 ## Pull Request Information
 - **Title:** {title}
@@ -52,7 +52,7 @@ Respond with a JSON object containing exactly these fields (no markdown, just ra
 }}
 """
 
-ISSUE_ANALYSIS_PROMPT = """You are ReviewSage, an expert at triaging GitHub issues. Analyze the following issue and provide your assessment.
+ISSUE_ANALYSIS_PROMPT = """You are GitNit, an expert at triaging GitHub issues. Analyze the following issue and provide your assessment.
 
 ## Issue Information
 - **Title:** {title}

@@ -12,13 +12,13 @@ from textual.screen import Screen
 from textual.widgets import LoadingIndicator, Static
 from textual.worker import Worker, WorkerState
 
-from reviewsage.ai_reviewer import analyze_issue
-from reviewsage.cache import get_cached_issue_analysis
-from reviewsage.models import IssueAnalysis, IssueDetail
-from reviewsage.widgets.copyable_text import CopyableText
+from gitnit.ai_reviewer import analyze_issue
+from gitnit.cache import get_cached_issue_analysis
+from gitnit.models import IssueAnalysis, IssueDetail
+from gitnit.widgets.copyable_text import CopyableText
 
 if TYPE_CHECKING:
-    from reviewsage.github_client import GitHubClient
+    from gitnit.github_client import GitHubClient
 
 
 class IssueDetailScreen(Screen):
@@ -140,7 +140,7 @@ class IssueDetailScreen(Screen):
         self.run_worker(self._fetch_and_analyze(), name="issue_analysis", exclusive=True)
 
     async def _fetch_and_analyze(self) -> tuple[IssueDetail, IssueAnalysis]:
-        from reviewsage.ai_reviewer import _issue_analysis_from_dict
+        from gitnit.ai_reviewer import _issue_analysis_from_dict
 
         # Check cache before expensive GitHub + LLM calls
         if self._repo:

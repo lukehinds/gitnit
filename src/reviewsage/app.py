@@ -1,4 +1,4 @@
-"""Main ReviewSage Textual application."""
+"""Main GitNit Textual application."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from textual.containers import Container
 from textual.screen import ModalScreen
 from textual.widgets import Footer, Header, LoadingIndicator, Static, TabbedContent, TabPane
 
-from reviewsage.github_client import GitHubClient
-from reviewsage.screens.issue_detail import IssueDetailScreen
-from reviewsage.screens.issue_list import IssueListView
-from reviewsage.screens.pr_detail import PRDetailScreen
-from reviewsage.screens.pr_list import PRListView
+from gitnit.github_client import GitHubClient
+from gitnit.screens.issue_detail import IssueDetailScreen
+from gitnit.screens.issue_list import IssueListView
+from gitnit.screens.pr_detail import PRDetailScreen
+from gitnit.screens.pr_list import PRListView
 
 POLL_INTERVAL_SECONDS = 300
 
@@ -121,7 +121,7 @@ class HelpScreen(ModalScreen):
 
     def compose(self) -> ComposeResult:
         with Container(classes="help-panel"):
-            yield Static("ReviewSage - Keyboard Shortcuts", classes="help-title")
+            yield Static("GitNit - Keyboard Shortcuts", classes="help-title")
             yield Static("")
 
             for key, desc in [
@@ -146,10 +146,10 @@ class HelpScreen(ModalScreen):
         self.app.pop_screen()
 
 
-class ReviewSageApp(App):
-    """ReviewSage - AI-powered PR and issue review TUI."""
+class GitNitApp(App):
+    """GitNit - AI-powered PR and issue review TUI."""
 
-    TITLE = "ReviewSage"
+    TITLE = "GitNit"
     SUB_TITLE = ""
     CSS_PATH = "styles/app.tcss"
 

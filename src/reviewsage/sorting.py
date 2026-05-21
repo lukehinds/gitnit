@@ -1,10 +1,10 @@
-"""PR sorting algorithm for ReviewSage."""
+"""PR sorting algorithm for GitNit."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from reviewsage.models import CIStatus, PRData
+from gitnit.models import CIStatus, PRData
 
 
 def pr_sort_score(pr: PRData) -> float:

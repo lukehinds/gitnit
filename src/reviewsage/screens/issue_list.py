@@ -13,12 +13,12 @@ from textual.widget import Widget
 from textual.widgets import LoadingIndicator, Static
 from textual.worker import Worker, WorkerState
 
-from reviewsage.cache import get_cached_issue_list, save_issue_list
-from reviewsage.models import IssueData, IssueLabel
-from reviewsage.widgets.paginated_table import PaginatedTable
+from gitnit.cache import get_cached_issue_list, save_issue_list
+from gitnit.models import IssueData, IssueLabel
+from gitnit.widgets.paginated_table import PaginatedTable
 
 if TYPE_CHECKING:
-    from reviewsage.github_client import GitHubClient
+    from gitnit.github_client import GitHubClient
 
 CACHE_MAX_AGE_SECONDS = 60
 

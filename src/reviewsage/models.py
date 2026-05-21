@@ -1,4 +1,4 @@
-"""Data models for ReviewSage."""
+"""Data models for GitNit."""
 
 from __future__ import annotations
 

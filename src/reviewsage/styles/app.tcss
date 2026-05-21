@@ -1,4 +1,4 @@
-/* ReviewSage - Main Application Styles */
+/* GitNit - Main Application Styles */
 
 Screen {
     background: $surface;

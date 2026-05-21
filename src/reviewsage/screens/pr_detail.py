@@ -13,13 +13,13 @@ from textual.screen import Screen
 from textual.widgets import LoadingIndicator, Static
 from textual.worker import Worker, WorkerState
 
-from reviewsage.ai_reviewer import analyze_pr
-from reviewsage.cache import get_cached_pr_analysis
-from reviewsage.models import PRAnalysis, PRDetail
-from reviewsage.widgets.copyable_text import CopyableText
+from gitnit.ai_reviewer import analyze_pr
+from gitnit.cache import get_cached_pr_analysis
+from gitnit.models import PRAnalysis, PRDetail
+from gitnit.widgets.copyable_text import CopyableText
 
 if TYPE_CHECKING:
-    from reviewsage.github_client import GitHubClient
+    from gitnit.github_client import GitHubClient
 
 
 class PRDetailScreen(Screen):
@@ -166,7 +166,7 @@ class PRDetailScreen(Screen):
         self.run_worker(self._fetch_and_analyze(), name="pr_analysis", exclusive=True)
 
     async def _fetch_and_analyze(self) -> tuple[PRDetail, PRAnalysis]:
-        from reviewsage.ai_reviewer import _pr_analysis_from_dict
+        from gitnit.ai_reviewer import _pr_analysis_from_dict
 
         # Check cache using known head_sha to avoid expensive GitHub + LLM calls
         head_sha = self._head_sha

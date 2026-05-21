@@ -1,4 +1,4 @@
-"""LLM analysis cache for ReviewSage.
+"""LLM analysis cache for GitNit.
 
 PR analyses are cached by (pr_number, head_sha) - invalidated when new commits arrive.
 Issue analyses are cached permanently by issue_number.
@@ -16,14 +16,14 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-from reviewsage.models import CIStatus, IssueData, IssueLabel, PRData
+from gitnit.models import CIStatus, IssueData, IssueLabel, PRData
 
 
 @cache
 def _cache_dir() -> Path:
     xdg = os.environ.get("XDG_CACHE_HOME")
     base = Path(xdg) if xdg else Path.home() / ".cache"
-    cache = base / "reviewsage"
+    cache = base / "gitnit"
     cache.mkdir(parents=True, exist_ok=True)
     return cache
 

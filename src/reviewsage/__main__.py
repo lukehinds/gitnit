@@ -1,4 +1,4 @@
-"""ReviewSage CLI entry point."""
+"""GitNit CLI entry point."""
 
 from __future__ import annotations
 
@@ -22,9 +22,9 @@ import click
     default="sonnet",
     help="Claude model to use for AI analysis",
 )
-@click.version_option(version="0.1.0", prog_name="ReviewSage")
+@click.version_option(version="0.1.0", prog_name="GitNit")
 def main(repo: str, model: str) -> None:
-    """ReviewSage - AI-powered TUI for reviewing GitHub pull requests and issues."""
+    """GitNit - AI-powered TUI for reviewing GitHub pull requests and issues."""
     if "/" not in repo:
         click.echo("Error: --repo must be in owner/repo format", err=True)
         sys.exit(1)
@@ -33,9 +33,9 @@ def main(repo: str, model: str) -> None:
         click.echo("Error: GITHUB_TOKEN environment variable is required", err=True)
         sys.exit(1)
 
-    from reviewsage.app import ReviewSageApp
+    from gitnit.app import GitNitApp
 
-    app = ReviewSageApp(repo=repo, model=model.lower())
+    app = GitNitApp(repo=repo, model=model.lower())
     app.run()
 
 

@@ -1,4 +1,4 @@
-"""Paginated DataTable widget for ReviewSage."""
+"""Paginated DataTable widget for GitNit."""
 
 from __future__ import annotations
 

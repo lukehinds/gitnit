@@ -11,13 +11,13 @@ from textual.widget import Widget
 from textual.widgets import LoadingIndicator, Static
 from textual.worker import Worker, WorkerState
 
-from reviewsage.cache import get_cached_pr_list, save_pr_list
-from reviewsage.models import PRData
-from reviewsage.sorting import sort_prs
-from reviewsage.widgets.paginated_table import PaginatedTable
+from gitnit.cache import get_cached_pr_list, save_pr_list
+from gitnit.models import PRData
+from gitnit.sorting import sort_prs
+from gitnit.widgets.paginated_table import PaginatedTable
 
 if TYPE_CHECKING:
-    from reviewsage.github_client import GitHubClient
+    from gitnit.github_client import GitHubClient
 
 
 CACHE_MAX_AGE_SECONDS = 60

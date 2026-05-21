@@ -19,6 +19,8 @@ from reviewsage.widgets.paginated_table import PaginatedTable
 if TYPE_CHECKING:
     from reviewsage.github_client import GitHubClient
 
+CACHE_MAX_AGE_SECONDS = 60
+
 LABEL_INDICATORS = {
     IssueLabel.BUG: "[red]||[/red]",
     IssueLabel.QUESTION: "[green]||[/green]",
@@ -71,7 +73,16 @@ class IssueListView(Widget):
         self._update_sort_indicator()
 
         direction = "desc" if self.sort_newest else "asc"
-        cached = get_cached_issue_list(self._repo, page=0, direction=direction) if self._repo else None
+        cached = (
+            get_cached_issue_list(
+                self._repo,
+                page=0,
+                direction=direction,
+                max_age_seconds=CACHE_MAX_AGE_SECONDS,
+            )
+            if self._repo
+            else None
+        )
         if cached:
             issues, total = cached
             self._issues = issues
@@ -79,8 +90,9 @@ class IssueListView(Widget):
             self._populate_table()
             self._loading = False
             self._show_loading(False)
+            return
 
-        self._load_page(0, show_loading=cached is None)
+        self._load_page(0)
 
     def _update_sort_indicator(self) -> None:
         order = "Newest first" if self.sort_newest else "Oldest first"

@@ -11,13 +11,15 @@ import contextlib
 import hashlib
 import json
 import os
-from datetime import datetime
+from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from typing import Any
 
 from reviewsage.models import CIStatus, IssueData, IssueLabel, PRData
 
 
+@cache
 def _cache_dir() -> Path:
     xdg = os.environ.get("XDG_CACHE_HOME")
     base = Path(xdg) if xdg else Path.home() / ".cache"
@@ -43,6 +45,25 @@ def _issue_cache_path(repo: str, issue_number: int) -> Path:
 def _list_cache_path(repo: str, kind: str, page: int, extra: str = "") -> Path:
     key = f"list:{kind}:{repo}:{page}:{extra}"
     return _cache_dir() / f"list-{_key_hash(key)}.json"
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(tz=UTC).isoformat()
+
+
+def _is_fresh(data: dict[str, Any], max_age_seconds: int | None) -> bool:
+    if max_age_seconds is None:
+        return True
+
+    saved_at = data.get("saved_at")
+    if not saved_at:
+        return False
+
+    saved = datetime.fromisoformat(saved_at)
+    if saved.tzinfo is None:
+        saved = saved.replace(tzinfo=UTC)
+    age = datetime.now(tz=UTC) - saved
+    return age.total_seconds() <= max_age_seconds
 
 
 # --- PR/Issue analysis cache (LLM results) ---
@@ -153,29 +174,40 @@ def _dict_to_issue(d: dict[str, Any]) -> IssueData:
     )
 
 
-def get_cached_pr_list(repo: str, page: int = 0) -> tuple[list[PRData], int] | None:
+def get_cached_pr_list(
+    repo: str, page: int = 0, max_age_seconds: int | None = None
+) -> tuple[list[PRData], int] | None:
     """Return cached PR list for a repo page, or None if not cached."""
     path = _list_cache_path(repo, "prs", page)
     if not path.exists():
         return None
     try:
         data = json.loads(path.read_text())
+        if not _is_fresh(data, max_age_seconds):
+            return None
         prs = [_dict_to_pr(d) for d in data["items"]]
         return prs, data["total"]
-    except (json.JSONDecodeError, OSError, KeyError, ValueError):
+    except (json.JSONDecodeError, OSError, KeyError, ValueError, TypeError):
         return None
 
 
 def save_pr_list(repo: str, page: int, prs: list[PRData], total: int) -> None:
     """Save PR list to cache."""
     path = _list_cache_path(repo, "prs", page)
-    data = {"items": [_pr_to_dict(pr) for pr in prs], "total": total}
+    data = {
+        "items": [_pr_to_dict(pr) for pr in prs],
+        "total": total,
+        "saved_at": _utc_now_iso(),
+    }
     with contextlib.suppress(OSError):
         path.write_text(json.dumps(data))
 
 
 def get_cached_issue_list(
-    repo: str, page: int = 0, direction: str = "desc"
+    repo: str,
+    page: int = 0,
+    direction: str = "desc",
+    max_age_seconds: int | None = None,
 ) -> tuple[list[IssueData], int] | None:
     """Return cached issue list for a repo page, or None if not cached."""
     path = _list_cache_path(repo, "issues", page, extra=direction)
@@ -183,9 +215,11 @@ def get_cached_issue_list(
         return None
     try:
         data = json.loads(path.read_text())
+        if not _is_fresh(data, max_age_seconds):
+            return None
         issues = [_dict_to_issue(d) for d in data["items"]]
         return issues, data["total"]
-    except (json.JSONDecodeError, OSError, KeyError, ValueError):
+    except (json.JSONDecodeError, OSError, KeyError, ValueError, TypeError):
         return None
 
 
@@ -194,6 +228,10 @@ def save_issue_list(
 ) -> None:
     """Save issue list to cache."""
     path = _list_cache_path(repo, "issues", page, extra=direction)
-    data = {"items": [_issue_to_dict(i) for i in issues], "total": total}
+    data = {
+        "items": [_issue_to_dict(i) for i in issues],
+        "total": total,
+        "saved_at": _utc_now_iso(),
+    }
     with contextlib.suppress(OSError):
         path.write_text(json.dumps(data))

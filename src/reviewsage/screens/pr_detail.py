@@ -175,7 +175,7 @@ class PRDetailScreen(Screen):
             cached = get_cached_pr_analysis(self._repo, self._pr_number, head_sha)
             if cached:
                 # Only fetch basic PR metadata, skip diff/files/comments
-                detail = self._client.get_pr_summary(self._pr_number)
+                detail = self._client.get_pr_summary(self._pr_number, fetch_ci=False)
                 return detail, _pr_analysis_from_dict(cached)
 
         # No cache hit: full fetch + AI analysis

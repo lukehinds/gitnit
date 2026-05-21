@@ -125,10 +125,10 @@ class GitHubClient:
             pr=data, diff="\n\n".join(diff_parts), files=files, review_comments=comments
         )
 
-    def get_pr_summary(self, number: int) -> PRDetail:
+    def get_pr_summary(self, number: int, fetch_ci: bool = True) -> PRDetail:
         """Get PR metadata without the expensive diff/files fetch (single API call)."""
         pr = self._repo.get_pull(number)
-        data = self._pr_to_data(pr, fetch_ci=True)
+        data = self._pr_to_data(pr, fetch_ci=fetch_ci)
         return PRDetail(pr=data)
 
     def get_pr_head_sha(self, number: int) -> str:

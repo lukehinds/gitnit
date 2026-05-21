@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from reviewsage.github_client import GitHubClient
 
 
+CACHE_MAX_AGE_SECONDS = 60
+
 SIZE_COLORS = {
     "XS": "[green]XS[/green]",
     "S": "[green]S[/green]",
@@ -65,7 +67,11 @@ class PRListView(Widget):
         table = table_widget.table
         table.add_columns("PR", "Title", "Author", "Date", "Size")
 
-        cached = get_cached_pr_list(self._repo, page=0) if self._repo else None
+        cached = (
+            get_cached_pr_list(self._repo, page=0, max_age_seconds=CACHE_MAX_AGE_SECONDS)
+            if self._repo
+            else None
+        )
         if cached:
             prs, total = cached
             self._prs = sort_prs(prs)
@@ -73,8 +79,9 @@ class PRListView(Widget):
             self._populate_table()
             self._loading = False
             self._show_loading(False)
+            return
 
-        self._load_page(0, show_loading=cached is None)
+        self._load_page(0)
 
     def _load_page(self, page: int, show_loading: bool = True) -> None:
         if show_loading:

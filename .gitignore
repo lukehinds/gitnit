@@ -32,6 +32,7 @@ env/
 # IDE
 .idea/
 .vscode/
+.plans/
 *.swp
 *.swo
 .tool-versions

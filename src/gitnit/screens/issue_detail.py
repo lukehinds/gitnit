@@ -98,13 +98,17 @@ class IssueDetailScreen(Screen):
         self,
         issue_number: int,
         github_client: GitHubClient,
+        provider: str = "claude-code",
         model: str = "sonnet",
+        prompt_version: str = "v1",
         repo: str = "",
     ) -> None:
         super().__init__()
         self._issue_number = issue_number
         self._client = github_client
+        self._provider = provider
         self._model = model
+        self._prompt_version = prompt_version
         self._repo = repo
         self._analysis: IssueAnalysis | None = None
         self._issue_detail: IssueDetail | None = None
@@ -144,7 +148,13 @@ class IssueDetailScreen(Screen):
 
         # Check cache before expensive GitHub + LLM calls
         if self._repo:
-            cached = get_cached_issue_analysis(self._repo, self._issue_number)
+            cached = get_cached_issue_analysis(
+                self._repo,
+                self._issue_number,
+                provider=self._provider,
+                model=self._model,
+                prompt_version=self._prompt_version,
+            )
             if cached:
                 detail = await asyncio.to_thread(
                     self._client.get_issue_summary, self._issue_number
@@ -153,7 +163,13 @@ class IssueDetailScreen(Screen):
 
         # No cache hit: full fetch + AI analysis
         detail = await asyncio.to_thread(self._client.get_issue_detail, self._issue_number)
-        analysis = await analyze_issue(detail, model=self._model, repo=self._repo)
+        analysis = await analyze_issue(
+            detail,
+            provider=self._provider,
+            model=self._model,
+            repo=self._repo,
+            prompt_version=self._prompt_version,
+        )
         return detail, analysis
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:

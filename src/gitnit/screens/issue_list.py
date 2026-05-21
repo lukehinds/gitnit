@@ -20,8 +20,6 @@ from gitnit.widgets.paginated_table import PaginatedTable
 if TYPE_CHECKING:
     from gitnit.github_client import GitHubClient
 
-CACHE_MAX_AGE_SECONDS = 60
-
 LABEL_INDICATORS = {
     IssueLabel.BUG: "[red]||[/red]",
     IssueLabel.QUESTION: "[green]||[/green]",
@@ -47,10 +45,17 @@ class IssueListView(Widget):
 
     sort_newest: reactive[bool] = reactive(True)
 
-    def __init__(self, github_client: GitHubClient, repo: str = "", **kwargs) -> None:
+    def __init__(
+        self,
+        github_client: GitHubClient,
+        repo: str = "",
+        cache_max_age_seconds: int = 600,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self._client = github_client
         self._repo = repo
+        self._cache_max_age_seconds = cache_max_age_seconds
         self._issues: list[IssueData] = []
         self._current_page = 0
         self._total_count = 0
@@ -79,7 +84,7 @@ class IssueListView(Widget):
                 self._repo,
                 page=0,
                 direction=direction,
-                max_age_seconds=CACHE_MAX_AGE_SECONDS,
+                max_age_seconds=self._cache_max_age_seconds,
             )
             if self._repo
             else None

@@ -20,8 +20,6 @@ if TYPE_CHECKING:
     from gitnit.github_client import GitHubClient
 
 
-CACHE_MAX_AGE_SECONDS = 60
-
 SIZE_COLORS = {
     "XS": "[green]XS[/green]",
     "S": "[green]S[/green]",
@@ -45,10 +43,17 @@ class PRListView(Widget):
     }
     """
 
-    def __init__(self, github_client: GitHubClient, repo: str = "", **kwargs) -> None:
+    def __init__(
+        self,
+        github_client: GitHubClient,
+        repo: str = "",
+        cache_max_age_seconds: int = 600,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self._client = github_client
         self._repo = repo
+        self._cache_max_age_seconds = cache_max_age_seconds
         self._prs: list[PRData] = []
         self._current_page = 0
         self._total_count = 0
@@ -69,7 +74,11 @@ class PRListView(Widget):
         table.add_columns("PR", "Title", "Author", "Date", "Size")
 
         cached = (
-            get_cached_pr_list(self._repo, page=0, max_age_seconds=CACHE_MAX_AGE_SECONDS)
+            get_cached_pr_list(
+                self._repo,
+                page=0,
+                max_age_seconds=self._cache_max_age_seconds,
+            )
             if self._repo
             else None
         )

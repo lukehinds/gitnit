@@ -120,14 +120,18 @@ class PRDetailScreen(Screen):
         self,
         pr_number: int,
         github_client: GitHubClient,
+        provider: str = "claude-code",
         model: str = "sonnet",
+        prompt_version: str = "v1",
         repo: str = "",
         head_sha: str = "",
     ) -> None:
         super().__init__()
         self._pr_number = pr_number
         self._client = github_client
+        self._provider = provider
         self._model = model
+        self._prompt_version = prompt_version
         self._repo = repo
         self._head_sha = head_sha
         self._analysis: PRAnalysis | None = None
@@ -174,7 +178,14 @@ class PRDetailScreen(Screen):
             head_sha = await asyncio.to_thread(self._client.get_pr_head_sha, self._pr_number)
 
         if self._repo and head_sha:
-            cached = get_cached_pr_analysis(self._repo, self._pr_number, head_sha)
+            cached = get_cached_pr_analysis(
+                self._repo,
+                self._pr_number,
+                head_sha,
+                provider=self._provider,
+                model=self._model,
+                prompt_version=self._prompt_version,
+            )
             if cached:
                 # Only fetch basic PR metadata, skip diff/files/comments
                 detail = await asyncio.to_thread(
@@ -184,7 +195,13 @@ class PRDetailScreen(Screen):
 
         # No cache hit: full fetch + AI analysis
         detail = await asyncio.to_thread(self._client.get_pr_detail, self._pr_number)
-        analysis = await analyze_pr(detail, model=self._model, repo=self._repo)
+        analysis = await analyze_pr(
+            detail,
+            provider=self._provider,
+            model=self._model,
+            repo=self._repo,
+            prompt_version=self._prompt_version,
+        )
         return detail, analysis
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:

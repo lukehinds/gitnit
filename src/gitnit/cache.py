@@ -1,7 +1,7 @@
 """LLM analysis cache for GitNit.
 
-PR analyses are cached by (pr_number, head_sha) - invalidated when new commits arrive.
-Issue analyses are cached permanently by issue_number.
+PR analyses are cached by provider/model/prompt plus (pr_number, head_sha).
+Issue analyses are cached by provider/model/prompt plus issue_number.
 List data (PRs, issues) is cached per-repo for instant startup.
 """
 
@@ -32,12 +32,50 @@ def _key_hash(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
-def _pr_cache_path(repo: str, pr_number: int, head_sha: str) -> Path:
+DEFAULT_ANALYSIS_PROVIDER = "claude-code"
+DEFAULT_ANALYSIS_MODEL = "sonnet"
+DEFAULT_ANALYSIS_PROMPT_VERSION = "v2"
+DEFAULT_PR_SCHEMA_VERSION = "pr-analysis-v1"
+DEFAULT_ISSUE_SCHEMA_VERSION = "issue-analysis-v1"
+
+
+def _pr_cache_path(
+    repo: str,
+    pr_number: int,
+    head_sha: str,
+    provider: str,
+    model: str,
+    prompt_version: str,
+    schema_version: str,
+) -> Path:
+    key = (
+        f"pr:{repo}:{pr_number}:{head_sha}:"
+        f"{provider}:{model}:{prompt_version}:{schema_version}"
+    )
+    return _cache_dir() / f"pr-{_key_hash(key)}.json"
+
+
+def _legacy_pr_cache_path(repo: str, pr_number: int, head_sha: str) -> Path:
     key = f"pr:{repo}:{pr_number}:{head_sha}"
     return _cache_dir() / f"pr-{_key_hash(key)}.json"
 
 
-def _issue_cache_path(repo: str, issue_number: int) -> Path:
+def _issue_cache_path(
+    repo: str,
+    issue_number: int,
+    provider: str,
+    model: str,
+    prompt_version: str,
+    schema_version: str,
+) -> Path:
+    key = (
+        f"issue:{repo}:{issue_number}:"
+        f"{provider}:{model}:{prompt_version}:{schema_version}"
+    )
+    return _cache_dir() / f"issue-{_key_hash(key)}.json"
+
+
+def _legacy_issue_cache_path(repo: str, issue_number: int) -> Path:
     key = f"issue:{repo}:{issue_number}"
     return _cache_dir() / f"issue-{_key_hash(key)}.json"
 
@@ -69,40 +107,126 @@ def _is_fresh(data: dict[str, Any], max_age_seconds: int | None) -> bool:
 # --- PR/Issue analysis cache (LLM results) ---
 
 
-def get_cached_pr_analysis(repo: str, pr_number: int, head_sha: str) -> dict[str, Any] | None:
+def _read_json(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _analysis_metadata(
+    provider: str,
+    model: str,
+    prompt_version: str,
+    schema_version: str,
+) -> dict[str, Any]:
+    return {
+        "provider": provider,
+        "model": model,
+        "prompt_version": prompt_version,
+        "schema_version": schema_version,
+        "saved_at": _utc_now_iso(),
+    }
+
+
+def get_cached_pr_analysis(
+    repo: str,
+    pr_number: int,
+    head_sha: str,
+    provider: str = DEFAULT_ANALYSIS_PROVIDER,
+    model: str = DEFAULT_ANALYSIS_MODEL,
+    prompt_version: str = DEFAULT_ANALYSIS_PROMPT_VERSION,
+    schema_version: str = DEFAULT_PR_SCHEMA_VERSION,
+) -> dict[str, Any] | None:
     """Return cached PR analysis if it exists for the given head SHA."""
-    path = _pr_cache_path(repo, pr_number, head_sha)
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return None
+    path = _pr_cache_path(
+        repo, pr_number, head_sha, provider, model, prompt_version, schema_version
+    )
+    cached = _read_json(path)
+    if cached is not None:
+        return cached
+
+    if (
+        provider == DEFAULT_ANALYSIS_PROVIDER
+        and model == DEFAULT_ANALYSIS_MODEL
+        and prompt_version == DEFAULT_ANALYSIS_PROMPT_VERSION
+        and schema_version == DEFAULT_PR_SCHEMA_VERSION
+    ):
+        return _read_json(_legacy_pr_cache_path(repo, pr_number, head_sha))
+
+    return None
 
 
-def save_pr_analysis(repo: str, pr_number: int, head_sha: str, data: dict[str, Any]) -> None:
+def save_pr_analysis(
+    repo: str,
+    pr_number: int,
+    head_sha: str,
+    data: dict[str, Any],
+    provider: str = DEFAULT_ANALYSIS_PROVIDER,
+    model: str = DEFAULT_ANALYSIS_MODEL,
+    prompt_version: str = DEFAULT_ANALYSIS_PROMPT_VERSION,
+    schema_version: str = DEFAULT_PR_SCHEMA_VERSION,
+) -> None:
     """Save PR analysis to cache, keyed by head SHA."""
-    path = _pr_cache_path(repo, pr_number, head_sha)
+    path = _pr_cache_path(
+        repo, pr_number, head_sha, provider, model, prompt_version, schema_version
+    )
+    payload = {
+        **data,
+        "_metadata": _analysis_metadata(provider, model, prompt_version, schema_version),
+    }
     with contextlib.suppress(OSError):
-        path.write_text(json.dumps(data))
+        path.write_text(json.dumps(payload))
 
 
-def get_cached_issue_analysis(repo: str, issue_number: int) -> dict[str, Any] | None:
+def get_cached_issue_analysis(
+    repo: str,
+    issue_number: int,
+    provider: str = DEFAULT_ANALYSIS_PROVIDER,
+    model: str = DEFAULT_ANALYSIS_MODEL,
+    prompt_version: str = DEFAULT_ANALYSIS_PROMPT_VERSION,
+    schema_version: str = DEFAULT_ISSUE_SCHEMA_VERSION,
+) -> dict[str, Any] | None:
     """Return cached issue analysis if it exists."""
-    path = _issue_cache_path(repo, issue_number)
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return None
+    path = _issue_cache_path(
+        repo, issue_number, provider, model, prompt_version, schema_version
+    )
+    cached = _read_json(path)
+    if cached is not None:
+        return cached
+
+    if (
+        provider == DEFAULT_ANALYSIS_PROVIDER
+        and model == DEFAULT_ANALYSIS_MODEL
+        and prompt_version == DEFAULT_ANALYSIS_PROMPT_VERSION
+        and schema_version == DEFAULT_ISSUE_SCHEMA_VERSION
+    ):
+        return _read_json(_legacy_issue_cache_path(repo, issue_number))
+
+    return None
 
 
-def save_issue_analysis(repo: str, issue_number: int, data: dict[str, Any]) -> None:
+def save_issue_analysis(
+    repo: str,
+    issue_number: int,
+    data: dict[str, Any],
+    provider: str = DEFAULT_ANALYSIS_PROVIDER,
+    model: str = DEFAULT_ANALYSIS_MODEL,
+    prompt_version: str = DEFAULT_ANALYSIS_PROMPT_VERSION,
+    schema_version: str = DEFAULT_ISSUE_SCHEMA_VERSION,
+) -> None:
     """Save issue analysis to cache (permanent)."""
-    path = _issue_cache_path(repo, issue_number)
+    path = _issue_cache_path(
+        repo, issue_number, provider, model, prompt_version, schema_version
+    )
+    payload = {
+        **data,
+        "_metadata": _analysis_metadata(provider, model, prompt_version, schema_version),
+    }
     with contextlib.suppress(OSError):
-        path.write_text(json.dumps(data))
+        path.write_text(json.dumps(payload))
 
 
 # --- List data cache (PR/issue lists for instant startup) ---

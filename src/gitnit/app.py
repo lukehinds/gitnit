@@ -16,9 +16,6 @@ from gitnit.screens.issue_list import IssueListView
 from gitnit.screens.pr_detail import PRDetailScreen
 from gitnit.screens.pr_list import PRListView
 
-POLL_INTERVAL_SECONDS = 300
-
-
 class NotificationScreen(ModalScreen):
     """Modal popup announcing new PRs or issues."""
 
@@ -160,10 +157,22 @@ class GitNitApp(App):
         Binding("s", "toggle_sort", "Sort", show=True),
     ]
 
-    def __init__(self, repo: str, model: str = "sonnet") -> None:
+    def __init__(
+        self,
+        repo: str,
+        provider: str = "claude-code",
+        model: str = "sonnet",
+        prompt_version: str = "v1",
+        cache_ttl_seconds: int = 600,
+        poll_interval_seconds: int = 300,
+    ) -> None:
         super().__init__()
         self._repo = repo
+        self._provider = provider
         self._model = model
+        self._prompt_version = prompt_version
+        self._cache_ttl_seconds = cache_ttl_seconds
+        self._poll_interval_seconds = poll_interval_seconds
         self._client: GitHubClient | None = None
         self._known_pr_count: int = -1
         self._known_issue_count: int = -1
@@ -256,7 +265,12 @@ class GitNitApp(App):
             pr_tab = self.query_one("#tab-prs", TabPane)
             pr_msg = self.query_one("#pr-init-msg", Static)
             pr_msg.remove()
-            pr_view = PRListView(self._client, repo=self._repo, id="pr-list-view")
+            pr_view = PRListView(
+                self._client,
+                repo=self._repo,
+                cache_max_age_seconds=self._cache_ttl_seconds,
+                id="pr-list-view",
+            )
             pr_tab.mount(pr_view)
         except Exception:
             pass
@@ -265,7 +279,12 @@ class GitNitApp(App):
             issue_tab = self.query_one("#tab-issues", TabPane)
             issue_msg = self.query_one("#issue-init-msg", Static)
             issue_msg.remove()
-            issue_view = IssueListView(self._client, repo=self._repo, id="issue-list-view")
+            issue_view = IssueListView(
+                self._client,
+                repo=self._repo,
+                cache_max_age_seconds=self._cache_ttl_seconds,
+                id="issue-list-view",
+            )
             issue_tab.mount(issue_view)
         except Exception:
             pass
@@ -283,7 +302,7 @@ class GitNitApp(App):
             thread=True,
         )
         self._poll_timer = self.set_interval(
-            POLL_INTERVAL_SECONDS, self._poll_for_updates, pause=False
+            self._poll_interval_seconds, self._poll_for_updates, pause=False
         )
 
     def _fetch_counts(self) -> tuple[int, int]:
@@ -367,7 +386,9 @@ class GitNitApp(App):
                 detail_screen = PRDetailScreen(
                     pr_number,
                     self._client,
+                    provider=self._provider,
                     model=self._model,
+                    prompt_version=self._prompt_version,
                     repo=self._repo,
                     head_sha=head_sha,
                 )
@@ -375,7 +396,12 @@ class GitNitApp(App):
             elif screen == "issue_detail" and callback and self._client:
                 issue_number = callback.get("issue_number", 0)
                 detail_screen = IssueDetailScreen(
-                    issue_number, self._client, model=self._model, repo=self._repo
+                    issue_number,
+                    self._client,
+                    provider=self._provider,
+                    model=self._model,
+                    prompt_version=self._prompt_version,
+                    repo=self._repo,
                 )
                 return super().push_screen(detail_screen)
         return super().push_screen(screen, callback)

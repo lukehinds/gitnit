@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container
@@ -14,7 +16,7 @@ from reviewsage.screens.issue_list import IssueListView
 from reviewsage.screens.pr_detail import PRDetailScreen
 from reviewsage.screens.pr_list import PRListView
 
-POLL_INTERVAL_SECONDS = 60
+POLL_INTERVAL_SECONDS = 300
 
 
 class NotificationScreen(ModalScreen):
@@ -207,10 +209,12 @@ class ReviewSageApp(App):
     def on_mount(self) -> None:
         self.sub_title = self._repo
         self.query_one("#main-tabs", TabbedContent).display = False
-        self.run_worker(self._initialize(), name="init", exclusive=True)
-
-    async def _initialize(self) -> GitHubClient:
-        return GitHubClient(self._repo)
+        self.run_worker(
+            partial(GitHubClient, self._repo),
+            name="init",
+            exclusive=True,
+            thread=True,
+        )
 
     def on_worker_state_changed(self, event) -> None:
         from textual.worker import WorkerState
@@ -272,12 +276,17 @@ class ReviewSageApp(App):
         """Begin periodic polling for new PRs and issues."""
         if not self._client:
             return
-        self.run_worker(self._fetch_counts(), name="initial_counts", exclusive=False)
+        self.run_worker(
+            self._fetch_counts,
+            name="initial_counts",
+            exclusive=False,
+            thread=True,
+        )
         self._poll_timer = self.set_interval(
             POLL_INTERVAL_SECONDS, self._poll_for_updates, pause=False
         )
 
-    async def _fetch_counts(self) -> tuple[int, int]:
+    def _fetch_counts(self) -> tuple[int, int]:
         """Fetch current PR and issue counts."""
         pr_count = self._client.get_open_pr_count() if self._client else -1
         issue_count = self._client.get_open_issue_count() if self._client else -1
@@ -285,8 +294,21 @@ class ReviewSageApp(App):
 
     def _poll_for_updates(self) -> None:
         """Timer callback: start a worker to check counts."""
-        if self._client:
-            self.run_worker(self._fetch_counts(), name="poll_counts", exclusive=False)
+        if not self._client or self._polling_paused_for_screen():
+            return
+        self.run_worker(
+            self._fetch_counts,
+            name="poll_counts",
+            exclusive=False,
+            thread=True,
+        )
+
+    def _polling_paused_for_screen(self) -> bool:
+        """Avoid background polling while the user is focused on modal/detail screens."""
+        return isinstance(
+            self.screen,
+            (NotificationScreen, HelpScreen, PRDetailScreen, IssueDetailScreen),
+        )
 
     def _handle_poll_result(self, pr_count: int, issue_count: int) -> None:
         """Compare new counts against known counts and show notification if changed."""

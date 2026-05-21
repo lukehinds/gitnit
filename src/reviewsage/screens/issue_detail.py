@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from rich.markup import escape
@@ -145,11 +146,13 @@ class IssueDetailScreen(Screen):
         if self._repo:
             cached = get_cached_issue_analysis(self._repo, self._issue_number)
             if cached:
-                detail = self._client.get_issue_summary(self._issue_number)
+                detail = await asyncio.to_thread(
+                    self._client.get_issue_summary, self._issue_number
+                )
                 return detail, _issue_analysis_from_dict(cached)
 
         # No cache hit: full fetch + AI analysis
-        detail = self._client.get_issue_detail(self._issue_number)
+        detail = await asyncio.to_thread(self._client.get_issue_detail, self._issue_number)
         analysis = await analyze_issue(detail, model=self._model, repo=self._repo)
         return detail, analysis
 

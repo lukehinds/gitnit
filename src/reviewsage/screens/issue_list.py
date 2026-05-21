@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from functools import partial
 from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
@@ -112,13 +113,16 @@ class IssueListView(Widget):
             self._show_loading(True)
         direction = "desc" if self.sort_newest else "asc"
         self.run_worker(
-            self._fetch_issues(page, direction),
+            partial(
+                self._client.list_issues,
+                page=page,
+                per_page=self._per_page,
+                direction=direction,
+            ),
             name="fetch_issues",
             exclusive=True,
+            thread=True,
         )
-
-    async def _fetch_issues(self, page: int, direction: str) -> tuple[list[IssueData], int]:
-        return self._client.list_issues(page=page, per_page=self._per_page, direction=direction)
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if event.worker.name != "fetch_issues":

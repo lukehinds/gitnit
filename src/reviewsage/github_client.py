@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from github import Github
 from github.GithubException import GithubException
@@ -13,6 +13,8 @@ from reviewsage.models import CIStatus, IssueData, IssueDetail, IssueLabel, PRDa
 if TYPE_CHECKING:
     from github.PullRequest import PullRequest
     from github.Repository import Repository
+
+GITHUB_PAGE_SIZE = 30
 
 
 class GitHubClientError(Exception):
@@ -94,9 +96,9 @@ class GitHubClient:
             return -1
 
     def get_open_issue_count(self) -> int:
-        """Return the total number of open issues (includes PRs in GitHub API)."""
+        """Return the total number of open issues, excluding PRs."""
         try:
-            return self._repo.get_issues(state="open").totalCount
+            return self._search_open_issues().totalCount
         except GithubException:
             return -1
 
@@ -107,8 +109,8 @@ class GitHubClient:
         """
         prs = self._repo.get_pulls(state="open", sort="updated", direction="desc")
         total = prs.totalCount
-        page_items = prs.get_page(page)
-        results = [self._pr_to_data(pr, fetch_ci=False) for pr in page_items[:per_page]]
+        page_items = self._get_ui_page(prs, page, per_page)
+        results = [self._pr_to_data(pr, fetch_ci=False) for pr in page_items]
         return results, total
 
     def get_pr_detail(self, number: int) -> PRDetail:
@@ -143,80 +145,58 @@ class GitHubClient:
         self, page: int = 0, per_page: int = 15, sort: str = "created", direction: str = "desc"
     ) -> tuple[list[IssueData], int]:
         """Return a page of open issues (excluding PRs) and the total count."""
-        issues = self._repo.get_issues(state="open", sort=sort, direction=direction)
+        issues = self._search_open_issues(sort=sort, direction=direction)
         total = issues.totalCount
-        page_items = issues.get_page(page)
-        results = []
-        for issue in page_items[:per_page]:
-            if issue.pull_request is not None:
-                continue
-            labels = [label.name for label in issue.labels]
-            primary_label = IssueLabel.OTHER
-            label_raw = ""
-            if labels:
-                label_raw = labels[0]
-                primary_label = IssueLabel.from_github_label(labels[0])
-            results.append(
-                IssueData(
-                    number=issue.number,
-                    title=issue.title,
-                    author=issue.user.login if issue.user else "unknown",
-                    label=primary_label,
-                    label_raw=label_raw,
-                    state=issue.state,
-                    created_at=issue.created_at,
-                    updated_at=issue.updated_at,
-                    body=issue.body or "",
-                    comment_count=issue.comments,
-                )
-            )
+        page_items = self._get_ui_page(issues, page, per_page)
+        results = [self._issue_to_data(issue) for issue in page_items]
         return results, total
+
+    def _get_ui_page(self, items: Any, page: int, per_page: int) -> list[Any]:
+        start = page * per_page
+        end = start + per_page
+        first_api_page = start // GITHUB_PAGE_SIZE
+        last_api_page = (end - 1) // GITHUB_PAGE_SIZE
+
+        fetched = []
+        for api_page in range(first_api_page, last_api_page + 1):
+            fetched.extend(items.get_page(api_page))
+
+        offset = start - (first_api_page * GITHUB_PAGE_SIZE)
+        return fetched[offset : offset + per_page]
+
+    def _search_open_issues(self, sort: str = "created", direction: str = "desc") -> Any:
+        query = f"repo:{self._repo.full_name} is:issue is:open"
+        return self._gh.search_issues(query=query, sort=sort, order=direction)
+
+    def _issue_to_data(self, issue: Any) -> IssueData:
+        labels = [label.name for label in issue.labels]
+        primary_label = IssueLabel.OTHER
+        label_raw = ""
+        if labels:
+            label_raw = labels[0]
+            primary_label = IssueLabel.from_github_label(labels[0])
+        return IssueData(
+            number=issue.number,
+            title=issue.title,
+            author=issue.user.login if issue.user else "unknown",
+            label=primary_label,
+            label_raw=label_raw,
+            state=issue.state,
+            created_at=issue.created_at,
+            updated_at=issue.updated_at,
+            body=issue.body or "",
+            comment_count=issue.comments,
+        )
 
     def get_issue_summary(self, number: int) -> IssueDetail:
         """Get issue metadata without fetching comments (single API call)."""
         issue = self._repo.get_issue(number)
-        labels = [label.name for label in issue.labels]
-        primary_label = IssueLabel.OTHER
-        label_raw = ""
-        if labels:
-            label_raw = labels[0]
-            primary_label = IssueLabel.from_github_label(labels[0])
-
-        data = IssueData(
-            number=issue.number,
-            title=issue.title,
-            author=issue.user.login if issue.user else "unknown",
-            label=primary_label,
-            label_raw=label_raw,
-            state=issue.state,
-            created_at=issue.created_at,
-            updated_at=issue.updated_at,
-            body=issue.body or "",
-            comment_count=issue.comments,
-        )
+        data = self._issue_to_data(issue)
         return IssueDetail(issue=data)
 
     def get_issue_detail(self, number: int) -> IssueDetail:
         issue = self._repo.get_issue(number)
-        labels = [label.name for label in issue.labels]
-        primary_label = IssueLabel.OTHER
-        label_raw = ""
-        if labels:
-            label_raw = labels[0]
-            primary_label = IssueLabel.from_github_label(labels[0])
-
-        data = IssueData(
-            number=issue.number,
-            title=issue.title,
-            author=issue.user.login if issue.user else "unknown",
-            label=primary_label,
-            label_raw=label_raw,
-            state=issue.state,
-            created_at=issue.created_at,
-            updated_at=issue.updated_at,
-            body=issue.body or "",
-            comment_count=issue.comments,
-        )
+        data = self._issue_to_data(issue)
 
         comments = []
         for comment in issue.get_comments():

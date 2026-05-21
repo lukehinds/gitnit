@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
@@ -87,10 +88,12 @@ class PRListView(Widget):
         if show_loading:
             self._loading = True
             self._show_loading(True)
-        self.run_worker(self._fetch_prs(page), name="fetch_prs", exclusive=True)
-
-    async def _fetch_prs(self, page: int) -> tuple[list[PRData], int]:
-        return self._client.list_prs(page=page, per_page=self._per_page)
+        self.run_worker(
+            partial(self._client.list_prs, page=page, per_page=self._per_page),
+            name="fetch_prs",
+            exclusive=True,
+            thread=True,
+        )
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if event.worker.name != "fetch_prs":

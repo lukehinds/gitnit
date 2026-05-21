@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from functools import partial
 from typing import TYPE_CHECKING
 
 from rich.markup import escape
@@ -169,17 +171,19 @@ class PRDetailScreen(Screen):
         # Check cache using known head_sha to avoid expensive GitHub + LLM calls
         head_sha = self._head_sha
         if not head_sha:
-            head_sha = self._client.get_pr_head_sha(self._pr_number)
+            head_sha = await asyncio.to_thread(self._client.get_pr_head_sha, self._pr_number)
 
         if self._repo and head_sha:
             cached = get_cached_pr_analysis(self._repo, self._pr_number, head_sha)
             if cached:
                 # Only fetch basic PR metadata, skip diff/files/comments
-                detail = self._client.get_pr_summary(self._pr_number, fetch_ci=False)
+                detail = await asyncio.to_thread(
+                    partial(self._client.get_pr_summary, self._pr_number, fetch_ci=False)
+                )
                 return detail, _pr_analysis_from_dict(cached)
 
         # No cache hit: full fetch + AI analysis
-        detail = self._client.get_pr_detail(self._pr_number)
+        detail = await asyncio.to_thread(self._client.get_pr_detail, self._pr_number)
         analysis = await analyze_pr(detail, model=self._model, repo=self._repo)
         return detail, analysis
 

@@ -75,6 +75,7 @@ class PRData:
     head_sha: str = ""
     body: str = ""
     labels: list[str] = field(default_factory=list)
+    files: list[str] = field(default_factory=list)
 
     @property
     def lines_changed(self) -> int:

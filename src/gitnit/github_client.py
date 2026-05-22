@@ -67,7 +67,9 @@ class GitHubClient:
         except GithubException:
             return CIStatus.UNKNOWN
 
-    def _pr_to_data(self, pr: PullRequest, fetch_ci: bool = True) -> PRData:
+    def _pr_to_data(
+        self, pr: PullRequest, fetch_ci: bool = True, files: list[str] | None = None
+    ) -> PRData:
         author = pr.user.login if pr.user else "unknown"
         is_bot = "dependabot" in author.lower() or "bot" in (pr.user.type or "").lower()
         ci = self._get_ci_status(pr) if fetch_ci else CIStatus.UNKNOWN
@@ -86,6 +88,7 @@ class GitHubClient:
             head_sha=pr.head.sha if pr.head else "",
             body=pr.body or "",
             labels=[label.name for label in pr.labels],
+            files=files or [],
         )
 
     def get_open_pr_count(self) -> int:
@@ -102,24 +105,29 @@ class GitHubClient:
         except GithubException:
             return -1
 
-    def list_prs(self, page: int = 0, per_page: int = 15) -> tuple[list[PRData], int]:
+    def list_prs(
+        self, page: int = 0, per_page: int = 15, fetch_files: bool = False
+    ) -> tuple[list[PRData], int]:
         """Return a page of open PRs and the total count.
 
-        CI status is not fetched here to avoid N+1 API calls.
+        CI status is skipped to avoid N+1 API calls. File lists are fetched
+        only when fetch_files=True (required for watch path indicators).
         """
         prs = self._repo.get_pulls(state="open", sort="updated", direction="desc")
         total = prs.totalCount
         page_items = self._get_ui_page(prs, page, per_page)
-        results = [self._pr_to_data(pr, fetch_ci=False) for pr in page_items]
+        results = []
+        for pr in page_items:
+            files = [f.filename for f in pr.get_files()] if fetch_files else []
+            results.append(self._pr_to_data(pr, fetch_ci=False, files=files))
         return results, total
 
     def get_pr_detail(self, number: int) -> PRDetail:
         pr = self._repo.get_pull(number)
-        data = self._pr_to_data(pr, fetch_ci=True)
-
         pr_files = list(pr.get_files())
         files = [f.filename for f in pr_files]
         diff_parts = [f"--- {f.filename}\n{f.patch}" for f in pr_files if f.patch]
+        data = self._pr_to_data(pr, fetch_ci=True, files=files)
 
         comments = [f"{c.user.login}: {c.body}" for c in pr.get_issue_comments()]
 

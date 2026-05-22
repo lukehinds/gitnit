@@ -12,6 +12,7 @@ from textual.widgets import LoadingIndicator, Static
 from textual.worker import Worker, WorkerState
 
 from gitnit.cache import get_cached_pr_list, save_pr_list
+from gitnit.config import WatchedPathConfig
 from gitnit.models import PRData
 from gitnit.sorting import sort_prs
 from gitnit.widgets.paginated_table import PaginatedTable
@@ -48,12 +49,14 @@ class PRListView(Widget):
         github_client: GitHubClient,
         repo: str = "",
         cache_max_age_seconds: int = 600,
+        watch_paths: list[WatchedPathConfig] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self._client = github_client
         self._repo = repo
         self._cache_max_age_seconds = cache_max_age_seconds
+        self._watch_paths: list[WatchedPathConfig] = watch_paths or []
         self._prs: list[PRData] = []
         self._current_page = 0
         self._total_count = 0
@@ -98,7 +101,12 @@ class PRListView(Widget):
             self._loading = True
             self._show_loading(True)
         self.run_worker(
-            partial(self._client.list_prs, page=page, per_page=self._per_page),
+            partial(
+                self._client.list_prs,
+                page=page,
+                per_page=self._per_page,
+                fetch_files=bool(self._watch_paths),
+            ),
             name="fetch_prs",
             exclusive=True,
             thread=True,
@@ -130,6 +138,19 @@ class PRListView(Widget):
         except Exception:
             pass
 
+    def _watch_badges(self, files: list[str]) -> str:
+        """Return Rich markup badges for any watched paths touched by this PR."""
+        seen: set[str] = set()
+        badges = []
+        for wp in self._watch_paths:
+            if wp.label in seen:
+                continue
+            prefix = wp.path.rstrip("/") + "/"
+            if any(f == wp.path or f.startswith(prefix) for f in files):
+                seen.add(wp.label)
+                badges.append(f"[{wp.color}]■ [{wp.label}][/{wp.color}]")
+        return " ".join(badges)
+
     def _populate_table(self) -> None:
         table_widget = self.query_one("#pr-table", PaginatedTable)
         table = table_widget.table
@@ -147,6 +168,11 @@ class PRListView(Widget):
             title = pr.title
             if len(title) > 60:
                 title = title[:57] + "..."
+
+            if self._watch_paths and pr.files:
+                badges = self._watch_badges(pr.files)
+                if badges:
+                    title = f"{badges} {title}"
 
             date_display = f"[dim]{pr.created_at.strftime('%d/%b')}[/dim]"
 

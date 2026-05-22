@@ -12,6 +12,7 @@ from textual.containers import Container
 from textual.screen import ModalScreen
 from textual.widgets import Footer, Header, LoadingIndicator, Static, TabbedContent, TabPane
 
+from gitnit.config import WatchedPathConfig
 from gitnit.github_client import GitHubClient
 from gitnit.screens.issue_detail import IssueDetailScreen
 from gitnit.screens.issue_list import IssueListView
@@ -269,6 +270,7 @@ class GitNitApp(App):
         cache_ttl_seconds: int = 600,
         poll_interval_seconds: int = 300,
         config_paths: list[Path] | None = None,
+        watch_paths: list[WatchedPathConfig] | None = None,
     ) -> None:
         super().__init__()
         self._repo = repo
@@ -278,6 +280,7 @@ class GitNitApp(App):
         self._cache_ttl_seconds = cache_ttl_seconds
         self._poll_interval_seconds = poll_interval_seconds
         self._config_paths = config_paths or []
+        self._watch_paths: list[WatchedPathConfig] = watch_paths or []
         self._client: GitHubClient | None = None
         self._known_pr_count: int = -1
         self._known_issue_count: int = -1
@@ -375,6 +378,7 @@ class GitNitApp(App):
                 self._client,
                 repo=self._repo,
                 cache_max_age_seconds=self._cache_ttl_seconds,
+                watch_paths=self._watch_paths,
                 id="pr-list-view",
             )
             pr_tab.mount(pr_view)

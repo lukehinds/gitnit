@@ -42,6 +42,18 @@ class LocalCodeConfig:
 
 
 @dataclass
+class WatchedPathConfig:
+    path: str = ""
+    label: str = ""
+    color: str = "red"
+
+
+@dataclass
+class WatchConfig:
+    paths: list[WatchedPathConfig] = field(default_factory=list)
+
+
+@dataclass
 class ContextExcludeConfig:
     patterns: list[str] = field(
         default_factory=lambda: [
@@ -72,6 +84,7 @@ class GitNitConfig:
     cache: CacheConfig = field(default_factory=CacheConfig)
     local_code: LocalCodeConfig = field(default_factory=LocalCodeConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
+    watch: WatchConfig = field(default_factory=WatchConfig)
     loaded_paths: list[Path] = field(default_factory=list)
 
 
@@ -131,6 +144,18 @@ def _config_from_dict(data: dict[str, Any], loaded_paths: list[Path] | None = No
     if "model" in data and "model" not in ai_data:
         ai_data = {**ai_data, "model": data["model"]}
 
+    watch_data = _section(data, "watch")
+    watch_paths_raw = watch_data.get("paths", [])
+    watch_paths = [
+        WatchedPathConfig(
+            path=entry.get("path", ""),
+            label=entry.get("label", ""),
+            color=entry.get("color", "red"),
+        )
+        for entry in watch_paths_raw
+        if isinstance(entry, dict) and entry.get("path")
+    ]
+
     return GitNitConfig(
         ai=AIConfig(**{**AIConfig().__dict__, **_known_values(AIConfig, ai_data)}),
         github=GitHubConfig(
@@ -157,6 +182,7 @@ def _config_from_dict(data: dict[str, Any], loaded_paths: list[Path] | None = No
                 ),
             }
         ),
+        watch=WatchConfig(paths=watch_paths),
         loaded_paths=loaded_paths or [],
     )
 

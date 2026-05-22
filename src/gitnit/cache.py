@@ -247,6 +247,7 @@ def _pr_to_dict(pr: PRData) -> dict[str, Any]:
         "head_sha": pr.head_sha,
         "body": pr.body,
         "labels": pr.labels,
+        "files": pr.files,
     }
 
 
@@ -265,6 +266,7 @@ def _dict_to_pr(d: dict[str, Any]) -> PRData:
         head_sha=d.get("head_sha", ""),
         body=d.get("body", ""),
         labels=d.get("labels", []),
+        files=d.get("files", []),
     )
 
 

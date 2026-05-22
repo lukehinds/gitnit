@@ -38,3 +38,15 @@ patterns = [
   "dist/**",
   "build/**",
 ]
+
+# Watch paths: highlight PRs that touch critical areas of the codebase.
+# Any PR that modifies files under a watched path gets a coloured badge
+# prepended to its title in the PR list view.
+# path uses prefix matching — "crates/nono" matches crates/nono/* but not crates/nono-cli/*
+# color accepts any Rich colour name (default: red)
+#
+# [watch]
+# paths = [
+#   { path = "crates/nono",       label = "nono",     color = "red" },
+#   { path = "src/app/security",  label = "security",  color = "red" },
+# ]

@@ -94,5 +94,6 @@ def main(
         cache_ttl_seconds=config.github.cache_ttl_seconds,
         poll_interval_seconds=config.github.poll_interval_seconds,
         config_paths=config.loaded_paths,
+        watch_paths=config.watch.paths,
     )
     app.run()

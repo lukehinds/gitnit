@@ -13,7 +13,7 @@ from typing import Any
 class AIConfig:
     provider: str = "claude-code"
     model: str = "sonnet"
-    prompt_version: str = "v2"
+    prompt_version: str = "v3"
 
 
 @dataclass
@@ -72,6 +72,7 @@ class GitNitConfig:
     cache: CacheConfig = field(default_factory=CacheConfig)
     local_code: LocalCodeConfig = field(default_factory=LocalCodeConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
+    loaded_paths: list[Path] = field(default_factory=list)
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -88,8 +89,10 @@ def _read_toml(path: Path) -> dict[str, Any]:
     try:
         with path.open("rb") as config_file:
             return tomllib.load(config_file)
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}
+    except OSError as e:
+        raise RuntimeError(f"Unable to read config file {path}: {e}") from e
+    except tomllib.TOMLDecodeError as e:
+        raise RuntimeError(f"Invalid TOML in config file {path}: {e}") from e
 
 
 def _section(data: dict[str, Any], name: str) -> dict[str, Any]:
@@ -105,14 +108,14 @@ def _known_values(cls: type, data: dict[str, Any]) -> dict[str, Any]:
 def _user_config_path() -> Path:
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
     base = Path(xdg_config_home) if xdg_config_home else Path.home() / ".config"
-    return base / "gitnit" / "config.toml"
+    return base / "gitnit" / "gitnit.toml"
 
 
 def _project_config_paths(cwd: Path) -> list[Path]:
     return [cwd / "gitnit.toml", cwd / ".gitnit.toml"]
 
 
-def _config_from_dict(data: dict[str, Any]) -> GitNitConfig:
+def _config_from_dict(data: dict[str, Any], loaded_paths: list[Path] | None = None) -> GitNitConfig:
     ai_data = _section(data, "ai")
     github_data = _section(data, "github")
     cache_data = _section(data, "cache")
@@ -121,6 +124,12 @@ def _config_from_dict(data: dict[str, Any]) -> GitNitConfig:
     exclude_data = _section(context_data, "exclude")
     context_values = _known_values(ContextConfig, context_data)
     context_values.pop("exclude", None)
+    if "repo" in data and "repo" not in github_data:
+        github_data = {**github_data, "repo": data["repo"]}
+    if "provider" in data and "provider" not in ai_data:
+        ai_data = {**ai_data, "provider": data["provider"]}
+    if "model" in data and "model" not in ai_data:
+        ai_data = {**ai_data, "model": data["model"]}
 
     return GitNitConfig(
         ai=AIConfig(**{**AIConfig().__dict__, **_known_values(AIConfig, ai_data)}),
@@ -148,6 +157,7 @@ def _config_from_dict(data: dict[str, Any]) -> GitNitConfig:
                 ),
             }
         ),
+        loaded_paths=loaded_paths or [],
     )
 
 
@@ -155,12 +165,15 @@ def load_config(config_path: Path | None = None, cwd: Path | None = None) -> Git
     """Load GitNit config from defaults, user config, project config, and explicit path."""
     cwd = cwd or Path.cwd()
     data: dict[str, Any] = {}
+    loaded_paths: list[Path] = []
 
     for path in [_user_config_path(), *_project_config_paths(cwd)]:
         if path.exists():
             data = _deep_merge(data, _read_toml(path))
+            loaded_paths.append(path)
 
     if config_path is not None:
         data = _deep_merge(data, _read_toml(config_path))
+        loaded_paths.append(config_path)
 
-    return _config_from_dict(data)
+    return _config_from_dict(data, loaded_paths=loaded_paths)

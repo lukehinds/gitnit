@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import time
 from functools import partial
+from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -130,7 +132,7 @@ class HelpScreen(ModalScreen):
                 ("c", "Copy review/fix to clipboard"),
                 ("r", "Refresh current view"),
                 ("?", "Show this help"),
-                ("q", "Quit application"),
+                ("q q", "Quit application"),
             ]:
                 with Container(classes="help-row"):
                     yield Static(f"  {key}", classes="help-key")
@@ -138,6 +140,106 @@ class HelpScreen(ModalScreen):
 
             yield Static("")
             yield Static("[dim]Press Esc or ? to close[/dim]", id="help-close-hint")
+
+    def action_dismiss(self) -> None:
+        self.app.pop_screen()
+
+
+class InfoScreen(ModalScreen):
+    """Info overlay showing current GitNit runtime settings."""
+
+    BINDINGS = [
+        ("escape", "dismiss", "Close"),
+        ("i", "dismiss", "Close"),
+    ]
+
+    DEFAULT_CSS = """
+    InfoScreen {
+        align: center middle;
+    }
+
+    InfoScreen > .info-panel {
+        width: 76;
+        height: auto;
+        max-height: 80%;
+        background: $surface;
+        border: thick $primary;
+        padding: 2 3;
+    }
+
+    InfoScreen > .info-panel .info-title {
+        text-style: bold;
+        text-align: center;
+        margin-bottom: 1;
+        color: $accent;
+    }
+
+    InfoScreen > .info-panel .info-row {
+        layout: horizontal;
+        height: auto;
+        margin-bottom: 0;
+    }
+
+    InfoScreen > .info-panel .info-label {
+        width: 24;
+        text-style: bold;
+        color: $accent;
+    }
+
+    InfoScreen > .info-panel .info-value {
+        width: 1fr;
+    }
+
+    InfoScreen > .info-panel .info-hint {
+        text-align: center;
+        color: $text-muted;
+        margin-top: 1;
+    }
+    """
+
+    def __init__(
+        self,
+        repo: str,
+        provider: str,
+        model: str,
+        prompt_version: str,
+        cache_ttl_seconds: int,
+        poll_interval_seconds: int,
+        config_paths: list[Path],
+    ) -> None:
+        super().__init__()
+        self._repo = repo
+        self._provider = provider
+        self._model = model
+        self._prompt_version = prompt_version
+        self._cache_ttl_seconds = cache_ttl_seconds
+        self._poll_interval_seconds = poll_interval_seconds
+        self._config_paths = config_paths
+
+    def compose(self) -> ComposeResult:
+        config_value = (
+            "\n".join(str(path) for path in self._config_paths)
+            if self._config_paths
+            else "(none)"
+        )
+        rows = [
+            ("Repository", self._repo),
+            ("Provider", self._provider),
+            ("Model", self._model),
+            ("Prompt Version", self._prompt_version),
+            ("Cache TTL", f"{self._cache_ttl_seconds}s"),
+            ("Poll Interval", f"{self._poll_interval_seconds}s"),
+            ("Config", config_value),
+        ]
+
+        with Container(classes="info-panel"):
+            yield Static("GitNit Info", classes="info-title")
+            yield Static("")
+            for label, value in rows:
+                with Container(classes="info-row"):
+                    yield Static(label, classes="info-label")
+                    yield Static(value, classes="info-value")
+            yield Static("[dim]Press Esc or i to close[/dim]", classes="info-hint")
 
     def action_dismiss(self) -> None:
         self.app.pop_screen()
@@ -151,8 +253,9 @@ class GitNitApp(App):
     CSS_PATH = "styles/app.tcss"
 
     BINDINGS = [
-        Binding("q", "quit", "Quit", show=True),
+        Binding("q", "confirm_quit", "Quit x2", show=True),
         Binding("question_mark", "show_help", "Help", show=True, key_display="?"),
+        Binding("i", "show_info", "Info", show=True),
         Binding("r", "refresh", "Refresh", show=True),
         Binding("s", "toggle_sort", "Sort", show=True),
     ]
@@ -165,6 +268,7 @@ class GitNitApp(App):
         prompt_version: str = "v1",
         cache_ttl_seconds: int = 600,
         poll_interval_seconds: int = 300,
+        config_paths: list[Path] | None = None,
     ) -> None:
         super().__init__()
         self._repo = repo
@@ -173,10 +277,12 @@ class GitNitApp(App):
         self._prompt_version = prompt_version
         self._cache_ttl_seconds = cache_ttl_seconds
         self._poll_interval_seconds = poll_interval_seconds
+        self._config_paths = config_paths or []
         self._client: GitHubClient | None = None
         self._known_pr_count: int = -1
         self._known_issue_count: int = -1
         self._poll_timer = None
+        self._quit_armed_at = 0.0
 
     DEFAULT_CSS = """
     .init-loading {
@@ -326,7 +432,7 @@ class GitNitApp(App):
         """Avoid background polling while the user is focused on modal/detail screens."""
         return isinstance(
             self.screen,
-            (NotificationScreen, HelpScreen, PRDetailScreen, IssueDetailScreen),
+            (NotificationScreen, HelpScreen, InfoScreen, PRDetailScreen, IssueDetailScreen),
         )
 
     def _handle_poll_result(self, pr_count: int, issue_count: int) -> None:
@@ -358,6 +464,28 @@ class GitNitApp(App):
 
     def action_show_help(self) -> None:
         self.push_screen(HelpScreen())
+
+    def action_confirm_quit(self) -> None:
+        now = time.monotonic()
+        if now - self._quit_armed_at <= 1.5:
+            self.exit()
+            return
+
+        self._quit_armed_at = now
+        self.notify("Press q again to quit", timeout=1.2)
+
+    def action_show_info(self) -> None:
+        self.push_screen(
+            InfoScreen(
+                repo=self._repo,
+                provider=self._provider,
+                model=self._model,
+                prompt_version=self._prompt_version,
+                cache_ttl_seconds=self._cache_ttl_seconds,
+                poll_interval_seconds=self._poll_interval_seconds,
+                config_paths=self._config_paths,
+            )
+        )
 
     def action_toggle_sort(self) -> None:
         try:

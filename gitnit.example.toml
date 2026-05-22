@@ -1,0 +1,40 @@
+[ai]
+provider = "gemini"
+model = "gemini-2.5-pro"
+prompt_version = "v3"
+
+[github]
+repo = "owner/repo"
+cache_ttl_seconds = 600
+poll_interval_seconds = 300
+
+[cache]
+enabled = true
+dir = "~/.cache/gitnit"
+analysis_ttl_days = 30
+review_input_ttl_days = 14
+max_size_mb = 2048
+
+[local_code]
+enabled = false
+mirror_repos = true
+worktrees = true
+ttl_days = 7
+max_size_mb = 4096
+
+[context]
+max_files = 40
+max_file_bytes = 200000
+max_total_bytes = 1200000
+include_tests = true
+include_configs = true
+
+[context.exclude]
+patterns = [
+  ".env",
+  ".env.*",
+  "node_modules/**",
+  "vendor/**",
+  "dist/**",
+  "build/**",
+]

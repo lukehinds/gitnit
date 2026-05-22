@@ -8,11 +8,12 @@ dependencies = [
     "pygithub>=2.5.0",
     "claude-agent-sdk>=0.1.0",
     "click>=8.1.0",
+    "google-genai>=1.0.0",
     "rich>=13.0.0",
 ]
 
 [project.scripts]
-gitnit = "gitnit.__main__:main"
+gitnit = "gitnit.cli:main"
 
 [build-system]
 requires = ["hatchling"]

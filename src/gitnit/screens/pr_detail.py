@@ -28,7 +28,7 @@ class PRDetailScreen(Screen):
     BINDINGS = [
         ("escape", "go_back", "Back"),
         ("c", "copy_review", "Copy Review"),
-        ("q", "quit_app", "Quit"),
+        ("q", "confirm_quit", "Quit x2"),
     ]
 
     DEFAULT_CSS = """
@@ -160,7 +160,7 @@ class PRDetailScreen(Screen):
                 yield CopyableText(id="review-comment")
 
         yield Static(
-            " [bold]c[/bold] Copy review  [bold]Esc[/bold] Back  [bold]q[/bold] Quit ",
+            " [bold]c[/bold] Copy review  [bold]Esc[/bold] Back  [bold]q q[/bold] Quit ",
             classes="copy-hint",
         )
 
@@ -291,7 +291,11 @@ class PRDetailScreen(Screen):
 
         try:
             review = self.query_one("#review-comment", CopyableText)
-            review.update_text(analysis.review_comment)
+            review_text = (
+                analysis.review_comment
+                or "No review comment was returned by the AI provider."
+            )
+            review.update_text(review_text)
             review_panel = self.query_one("#review-panel")
             review_panel.refresh(layout=True)
         except Exception:
@@ -311,5 +315,5 @@ class PRDetailScreen(Screen):
         else:
             self.notify("No review comment available yet", severity="warning")
 
-    def action_quit_app(self) -> None:
-        self.app.exit()
+    def action_confirm_quit(self) -> None:
+        self.app.action_confirm_quit()

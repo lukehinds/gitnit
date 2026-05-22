@@ -27,7 +27,7 @@ class IssueDetailScreen(Screen):
     BINDINGS = [
         ("escape", "go_back", "Back"),
         ("c", "copy_fix", "Copy Fix"),
-        ("q", "quit_app", "Quit"),
+        ("q", "confirm_quit", "Quit x2"),
     ]
 
     DEFAULT_CSS = """
@@ -134,7 +134,7 @@ class IssueDetailScreen(Screen):
                 yield CopyableText(id="fix-suggestion")
 
         yield Static(
-            " [bold]c[/bold] Copy fix  [bold]Esc[/bold] Back  [bold]q[/bold] Quit ",
+            " [bold]c[/bold] Copy fix  [bold]Esc[/bold] Back  [bold]q q[/bold] Quit ",
             classes="copy-hint",
         )
 
@@ -265,5 +265,5 @@ class IssueDetailScreen(Screen):
         else:
             self.notify("No fix suggestion available yet", severity="warning")
 
-    def action_quit_app(self) -> None:
-        self.app.exit()
+    def action_confirm_quit(self) -> None:
+        self.app.action_confirm_quit()

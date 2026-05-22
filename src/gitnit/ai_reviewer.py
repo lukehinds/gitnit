@@ -1,8 +1,10 @@
-"""AI reviewer using Claude Agent SDK."""
+"""AI reviewer provider implementations."""
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Protocol
@@ -20,7 +22,8 @@ if TYPE_CHECKING:
 
 DEFAULT_PROVIDER = "claude-code"
 DEFAULT_MODEL = "sonnet"
-DEFAULT_PROMPT_VERSION = "v2"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-pro"
+DEFAULT_PROMPT_VERSION = "v3"
 PR_SCHEMA_VERSION = "pr-analysis-v1"
 ISSUE_SCHEMA_VERSION = "issue-analysis-v1"
 
@@ -56,6 +59,8 @@ Respond with a JSON object containing exactly these fields (no markdown, just ra
   "semver_impact": "One of: patch, minor, major - based on backwards compatibility analysis.",
   "review_comment": "Write a friendly, professional review comment as if you are the maintainer. Be approachable but technical. Address the author by their username. Start with acknowledgment of the work, then provide specific feedback, and end with next steps or approval suggestion. Do NOT use markdown headers. Use plain paragraphs."
 }}
+
+The "review_comment" value is required and must be a non-empty string. Do not omit it.
 """
 
 ISSUE_ANALYSIS_PROMPT = """You are GitNit, an expert at triaging GitHub issues. Analyze the following issue and provide your assessment.
@@ -112,6 +117,14 @@ def _extract_json(text: str | None) -> dict:
 
 
 def _pr_analysis_from_dict(data: dict) -> PRAnalysis:
+    review_comment = _first_non_empty(
+        data,
+        "review_comment",
+        "suggested_comment",
+        "comment",
+        "review",
+        "maintainer_comment",
+    )
     return PRAnalysis(
         summary=data.get("summary", ""),
         security_risks=data.get("security_risks", ""),
@@ -120,8 +133,16 @@ def _pr_analysis_from_dict(data: dict) -> PRAnalysis:
         disruption_assessment=data.get("disruption_assessment", ""),
         backwards_compatibility=data.get("backwards_compatibility", ""),
         semver_impact=data.get("semver_impact", ""),
-        review_comment=data.get("review_comment", ""),
+        review_comment=review_comment,
     )
+
+
+def _first_non_empty(data: dict, *keys: str) -> str:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
 
 
 def _issue_analysis_from_dict(data: dict) -> IssueAnalysis:
@@ -290,9 +311,123 @@ class ClaudeCodeProvider:
         return _issue_analysis_from_dict(data)
 
 
+class GeminiProvider:
+    """Reviewer provider backed by the Gemini API."""
+
+    def _client(self):
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY environment variable is required")
+
+        try:
+            from google import genai
+        except ImportError as e:
+            raise RuntimeError("Install google-genai to use the Gemini provider") from e
+
+        return genai.Client(api_key=api_key)
+
+    def _generate(self, prompt: str, model: str) -> str:
+        client = self._client()
+        response = client.models.generate_content(
+            model=model or DEFAULT_GEMINI_MODEL,
+            contents=prompt,
+        )
+        text = getattr(response, "text", None)
+        if isinstance(text, str):
+            return text
+        return ""
+
+    async def analyze_pr(self, pr_detail: PRDetail, model: str) -> PRAnalysis:
+        diff_truncated = (
+            pr_detail.diff[:15000] if len(pr_detail.diff) > 15000 else pr_detail.diff
+        )
+
+        prompt = PR_ANALYSIS_PROMPT.format(
+            title=pr_detail.pr.title,
+            author=pr_detail.pr.author,
+            number=pr_detail.pr.number,
+            changed_files=pr_detail.pr.changed_files,
+            additions=pr_detail.pr.additions,
+            deletions=pr_detail.pr.deletions,
+            body=pr_detail.pr.body or "(no description)",
+            files="\n".join(f"- {f}" for f in pr_detail.files),
+            diff=diff_truncated,
+        )
+
+        try:
+            result_text = await asyncio.to_thread(
+                self._generate,
+                prompt,
+                _gemini_model(model),
+            )
+        except Exception as e:
+            return PRAnalysis(
+                summary=f"Gemini analysis failed: {e}",
+                review_comment="Unable to generate review comment due to a Gemini API error.",
+            )
+
+        data = _extract_json(result_text)
+        if not data:
+            return PRAnalysis(
+                summary=result_text[:500] if result_text else "No analysis generated.",
+                review_comment=result_text if result_text else "No review generated.",
+            )
+
+        return _pr_analysis_from_dict(data)
+
+    async def analyze_issue(self, issue_detail: IssueDetail, model: str) -> IssueAnalysis:
+        comments_text = (
+            "\n\n".join(issue_detail.comments[:10])
+            if issue_detail.comments
+            else "(no comments)"
+        )
+
+        prompt = ISSUE_ANALYSIS_PROMPT.format(
+            title=issue_detail.issue.title,
+            author=issue_detail.issue.author,
+            number=issue_detail.issue.number,
+            labels=issue_detail.issue.label_raw or "none",
+            body=issue_detail.issue.body or "(no description)",
+            comments=comments_text,
+        )
+
+        try:
+            result_text = await asyncio.to_thread(
+                self._generate,
+                prompt,
+                _gemini_model(model),
+            )
+        except Exception as e:
+            return IssueAnalysis(
+                overview=f"Gemini analysis failed: {e}",
+                suggested_fix="Unable to generate fix suggestion due to a Gemini API error.",
+            )
+
+        data = _extract_json(result_text)
+        if not data:
+            return IssueAnalysis(
+                overview=result_text[:500] if result_text else "No analysis generated.",
+                suggested_fix="No fix suggestion could be extracted from the response.",
+            )
+
+        return _issue_analysis_from_dict(data)
+
+
+def _normalize_model(provider: str, model: str) -> str:
+    if provider == "gemini" and model in {"", DEFAULT_MODEL}:
+        return DEFAULT_GEMINI_MODEL
+    return model
+
+
+def _gemini_model(model: str) -> str:
+    return _normalize_model("gemini", model)
+
+
 def _get_provider(provider: str) -> ReviewerProvider | None:
     if provider in {"claude-code", "claude"}:
         return ClaudeCodeProvider()
+    if provider == "gemini":
+        return GeminiProvider()
     return None
 
 
@@ -305,6 +440,7 @@ async def analyze_pr(
 ) -> PRAnalysis:
     """Analyze a PR using the selected AI provider. Uses provider-aware cache keys."""
     head_sha = pr_detail.pr.head_sha
+    model = _normalize_model(provider, model)
 
     if repo and head_sha:
         cached = get_cached_pr_analysis(
@@ -351,6 +487,8 @@ async def analyze_issue(
     prompt_version: str = DEFAULT_PROMPT_VERSION,
 ) -> IssueAnalysis:
     """Analyze an issue using the selected AI provider. Cached by provider/model."""
+    model = _normalize_model(provider, model)
+
     if repo:
         cached = get_cached_issue_analysis(
             repo,

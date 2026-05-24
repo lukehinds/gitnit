@@ -27,6 +27,7 @@ class PRDetailScreen(Screen):
 
     BINDINGS = [
         ("escape", "go_back", "Back"),
+        ("d", "view_diff", "View Diff"),
         ("c", "copy_review", "Copy Review"),
         ("q", "confirm_quit", "Quit x2"),
     ]
@@ -160,7 +161,7 @@ class PRDetailScreen(Screen):
                 yield CopyableText(id="review-comment")
 
         yield Static(
-            " [bold]c[/bold] Copy review  [bold]Esc[/bold] Back  [bold]q q[/bold] Quit ",
+            " [bold]d[/bold] Diff  [bold]c[/bold] Copy review  [bold]Esc[/bold] Back  [bold]q q[/bold] Quit ",
             classes="copy-hint",
         )
 
@@ -300,6 +301,16 @@ class PRDetailScreen(Screen):
             review_panel.refresh(layout=True)
         except Exception:
             pass
+
+    def action_view_diff(self) -> None:
+        if self._pr_detail is None or self._analysis is None:
+            self.notify("Analysis not ready yet", severity="warning")
+            return
+        from gitnit.screens.pr_diff import PRDiffScreen
+
+        self.app.push_screen(
+            PRDiffScreen(self._pr_detail, github_client=self._client)
+        )
 
     def action_go_back(self) -> None:
         self.app.pop_screen()

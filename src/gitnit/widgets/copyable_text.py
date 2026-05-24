@@ -11,6 +11,17 @@ from textual.widgets import Static
 class CopyableText(Widget):
     """A text block that can be copied to clipboard with a keybinding."""
 
+    DEFAULT_CSS = """
+    CopyableText {
+        height: auto;
+    }
+
+    CopyableText .panel-content {
+        height: auto;
+        min-height: 1;
+    }
+    """
+
     def __init__(self, text: str = "", title: str = "", **kwargs) -> None:
         super().__init__(**kwargs)
         self._text = text

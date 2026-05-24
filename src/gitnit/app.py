@@ -17,6 +17,7 @@ from gitnit.github_client import GitHubClient
 from gitnit.screens.issue_detail import IssueDetailScreen
 from gitnit.screens.issue_list import IssueListView
 from gitnit.screens.pr_detail import PRDetailScreen
+from gitnit.screens.pr_diff import PRDiffScreen
 from gitnit.screens.pr_list import PRListView
 
 class NotificationScreen(ModalScreen):
@@ -130,6 +131,7 @@ class HelpScreen(ModalScreen):
                 ("Escape", "Go back / Close"),
                 ("Tab", "Switch between tabs"),
                 ("s", "Toggle issue sort order"),
+                ("d", "View PR diff (from PR detail)"),
                 ("c", "Copy review/fix to clipboard"),
                 ("r", "Refresh current view"),
                 ("?", "Show this help"),
@@ -436,7 +438,7 @@ class GitNitApp(App):
         """Avoid background polling while the user is focused on modal/detail screens."""
         return isinstance(
             self.screen,
-            (NotificationScreen, HelpScreen, InfoScreen, PRDetailScreen, IssueDetailScreen),
+            (NotificationScreen, HelpScreen, InfoScreen, PRDetailScreen, PRDiffScreen, IssueDetailScreen),
         )
 
     def _handle_poll_result(self, pr_count: int, issue_count: int) -> None:
